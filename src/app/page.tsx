@@ -59,7 +59,7 @@ export default function Home() {
       }
     };
     fetchBoats();
-  }, []);
+  }, [dispatch]);
 
   const features: Feature[] = [
     {

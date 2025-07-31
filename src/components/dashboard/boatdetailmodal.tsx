@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { X, Star, Users, DollarSign, Tag, Ship, Info } from 'lucide-react';
 import type { Boat } from '../../types';
 

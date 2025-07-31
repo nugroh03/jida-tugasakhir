@@ -61,7 +61,7 @@ export default function ManageBoatsPage() {
 
     if (boats.length > 0) return;
     fetchBoats();
-  }, []);
+  }, [boats.length, dispatch]);
 
   return (
     <>

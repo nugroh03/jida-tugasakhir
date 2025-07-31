@@ -52,7 +52,7 @@ export default function Boats() {
     if (boats.length > 0) return;
 
     fetchBoats();
-  }, []);
+  }, [boats.length, dispatch]);
 
   const categories: CategoryOption[] = [
     {

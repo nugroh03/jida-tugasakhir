@@ -56,7 +56,8 @@ export async function POST(request: Request) {
       token,
       user: userWithoutPassword,
     });
-  } catch (error) {
+  } catch (error ) {
+    console.error('Error during login:', error);
     return NextResponse.json(
       { message: 'Terjadi kesalahan pada server' },
       { status: 500 }
