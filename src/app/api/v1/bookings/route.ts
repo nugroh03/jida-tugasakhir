@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createHash } from 'crypto';
+
+import crypto from 'crypto';
 
 export async function GET() {
   try {
@@ -103,11 +104,15 @@ export async function POST(request: NextRequest) {
       console.log('Duitku return URL:', duitkuReturnUrl);
       console.log('Duitku API URL:', duitkuApiUrl);
 
-      const signatureRaw = `${merchantCode}-${timestamp}-${apiKey}`;
-const signature = createHash('sha256').update(signatureRaw).digest('hex');
+//       const signatureRaw = `${merchantCode}-${timestamp}-${apiKey}`;
+// const signature = crypto.createHmac('sha256').update(signatureRaw).digest('hex');
+    const signatureString = `${merchantCode}${timestamp}${orderId}${totalPrice}`;
+    const signature = crypto
+      .createHmac('sha256', apiKey)
+      .update(signatureString)
+      .digest('hex');
 
       const duitkuPayload = {
-        merchantCode: merchantCode,
         paymentAmount: totalPrice,
         merchantOrderId: orderId,
         productDetails: `Booking for ${boat.name}`,
@@ -130,19 +135,25 @@ const signature = createHash('sha256').update(signatureRaw).digest('hex');
       console.log('Duitku signature:', signature);
 
 
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-duitku-timestamp': timestamp.toString(), // pastikan ini `Date.now()` (miliseconds)
+        'x-duitku-signature': signature,
+        'x-duitku-merchantcode': merchantCode,
+      };
+
+      console.log('Duitku headers:', headers);
+
       const duitkuResponse = await fetch(duitkuApiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-duitku-timestamp': String(timestamp),
-          'x-duitku-signature': signature,
-          'x-duitku-merchantcode': merchantCode,
-        },
+        headers,
         body: JSON.stringify(duitkuPayload),
       });
 
       const duitkuData = await duitkuResponse.json();
+
+      console.log('Duitku response:', duitkuData);
 
       if (!duitkuResponse.ok || duitkuData.resultCode !== '00') {
         console.error('Duitku API Error:', duitkuData);
