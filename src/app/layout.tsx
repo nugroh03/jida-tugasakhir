@@ -5,6 +5,8 @@ import LayoutClient from '@/components/layoutclient';
 import StoreProvider from './StoreProvider';
 import NextAuthSession from './NextAuthSession';
 
+
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -20,20 +22,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <StoreProvider>
-      <html lang='id'>
-        {/* <AuthProvider>
-          <body className={inter.className}>
-            <LayoutClient>{children}</LayoutClient>
-          </body>
-        </AuthProvider> */}
-
-        <body className={inter.className}>
+    <html lang='id'>
+      <body className={inter.className}>
+        <StoreProvider>
           <NextAuthSession>
             <LayoutClient>{children}</LayoutClient>
           </NextAuthSession>
-        </body>
-      </html>
-    </StoreProvider>
+        </StoreProvider>
+      </body>
+    </html>
   );
 }
