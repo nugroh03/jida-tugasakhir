@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createHash } from 'crypto';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -25,7 +24,6 @@ export async function POST(request: NextRequest) {
       resultCode,
       reference,
       signature: duitkuSignature,
-      amount,
     } = body;
 
     console.log('Received Duitku callback:', body);
