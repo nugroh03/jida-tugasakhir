@@ -4,7 +4,19 @@ import { createHash } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+
+    const contentType = request.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      body = await request.json();
+    } else if (contentType.includes('application/x-www-form-urlencoded')) {
+      const formData = await request.formData();
+      body = Object.fromEntries(formData.entries());
+    } else {
+      throw new Error(`Unsupported content-type: ${contentType}`);
+    }
 
     // Ambil data dari body callback Duitku
     const {
