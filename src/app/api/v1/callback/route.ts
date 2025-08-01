@@ -1,5 +1,55 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+
+function getKeteranganPembayaran(kode: string) {
+  const pembayaranMap :any = {
+    // Credit Card
+    VC: "(Visa / Master Card / JCB)",
+
+    // Virtual Account
+    BC: "BCA Virtual Account",
+    M2: "Mandiri Virtual Account",
+    VA: "Maybank Virtual Account",
+    I1: "BNI Virtual Account",
+    B1: "CIMB Niaga Virtual Account",
+    BT: "Permata Bank Virtual Account",
+    A1: "ATM Bersama",
+    AG: "Bank Artha Graha",
+    NC: "Bank Neo Commerce/BNC",
+    BR: "BRIVA",
+    S1: "Bank Sahabat Sampoerna",
+    DM: "Danamon Virtual Account",
+    BV: "BSI Virtual Account",
+
+    // Ritel
+    FT: "Pegadaian/ALFA/Pos",
+    IR: "Indomaret",
+
+    // E-Wallet
+    OV: "OVO (Support Void)",
+    SA: "ShopeePay Apps (Support Void)",
+    LF: "LinkAja Apps (Fixed Fee)",
+    LA: "LinkAja Apps (Percentage Fee)",
+    DA: "DANA",
+    SL: "ShopeePay Account Link",
+    OL: "OVO Account Link",
+    JP: "Jenius Pay",
+
+    // QRIS
+    SP: "ShopeePay",
+    NQ: "Nobu",
+    DQ: "Dana",
+    GQ: "Gudang Voucher",
+    SQ: "Nusapay",
+
+    // Credit (Paylater)
+    DN: "Indodana Paylater",
+    AT: "ATOME"
+  };
+
+  return pembayaranMap[kode] || "Kode tidak dikenal";
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +72,7 @@ export async function POST(request: NextRequest) {
       merchantOrderId,
       resultCode,
       reference,
+      paymentCode,
     } = body;
 
     console.log('Received Duitku callback:', body);
@@ -84,6 +135,8 @@ export async function POST(request: NextRequest) {
         status: newStatus == 'SUCCESS' ? 'CONFIRMED' : 'CANCELLED',
         paymentStatus: newStatus == 'SUCCESS' ? 'PAID' : 'FAILED',
         paymentReference: reference, // Simpan referensi pembayaran dari Duitku
+        paymentCode: paymentCode,
+        peymentDescrition: getKeteranganPembayaran(paymentCode),
       },
     });
 
