@@ -4,12 +4,14 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Loader2, LogIn } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Boat } from '@prisma/client';
-
+import { Boat, Booking } from '@prisma/client';
+interface BookingWithDetails extends Booking {
+  boat: Boat;
+}
 export default function OrderPage() {
   // Gunakan hook useSession untuk mendapatkan data sesi dan statusnya
   const { data: session, status } = useSession();
-  const [bookings, setBookings] = useState<Boat[]>([]);
+  const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
