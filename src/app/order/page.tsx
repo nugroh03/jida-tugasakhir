@@ -3,10 +3,44 @@
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Loader2, LogIn } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Boat } from '@prisma/client';
 
 export default function OrderPage() {
   // Gunakan hook useSession untuk mendapatkan data sesi dan statusnya
   const { data: session, status } = useSession();
+  const [bookings, setBookings] = useState<Boat[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Hanya fetch data jika user sudah terotentikasi dan memiliki ID
+    if (status === 'authenticated' && session?.user?.id) {
+      const fetchBookings = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const res = await fetch(`/api/v1/bookings?userId=${session.user.id}`);
+          if (!res.ok) {
+            throw new Error('Gagal mengambil data pemesanan dari server.');
+          }
+          const apiResponse = await res.json();
+          if (apiResponse.statusCode !== 200) {
+            throw new Error(apiResponse.message || 'Terjadi kesalahan pada server.');
+          }
+          setBookings(apiResponse.data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Terjadi kesalahan.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchBookings();
+    } else if (status !== 'loading') {
+      setIsLoading(false);
+    }
+  }, [status, session]);
 
   // Selama sesi sedang diperiksa (loading), tampilkan pesan loading.
   // Ini mencegah "kedipan" konten yang tidak terotentikasi.
@@ -54,26 +88,55 @@ export default function OrderPage() {
             Berikut adalah riwayat pemesanan kapal Anda.
           </p>
           {/* Di sini Anda bisa menambahkan logika untuk fetch dan menampilkan data orderan */}
-          <ul className='space-y-4'>
-            <li className='p-4 border rounded-md flex justify-between items-center'>
-              <div>
-                <p className='font-semibold'>Orderan #12345 - Ocean Explorer</p>
-                <p className='text-sm text-gray-500'>Tanggal: 25 Desember 2024</p>
-              </div>
-              <span className='px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full'>
-                Selesai
-              </span>
-            </li>
-            <li className='p-4 border rounded-md flex justify-between items-center'>
-              <div>
-                <p className='font-semibold'>Orderan #67890 - Fishing Master</p>
-                <p className='text-sm text-gray-500'>Tanggal: 10 Januari 2025</p>
-              </div>
-              <span className='px-3 py-1 text-sm font-medium text-yellow-800 bg-yellow-100 rounded-full'>
-                Dalam Pengiriman
-              </span>
-            </li>
-          </ul>
+          {isLoading ? (
+            <div className='flex justify-center items-center p-8'>
+              <Loader2 className='h-8 w-8 animate-spin text-blue-700' />
+              <p className='ml-4 text-gray-600'>Memuat riwayat orderan...</p>
+            </div>
+          ) : error ? (
+            <div className='text-center p-8 bg-red-50 text-red-700 rounded-lg'>
+              <p>
+                <strong>Error:</strong> {error}
+              </p>
+            </div>
+          ) : bookings.length > 0 ? (
+            <ul className='space-y-4'>
+              {bookings.map((booking) => (
+                <li
+                  key={booking.id}
+                  className='p-4 border rounded-md flex justify-between items-center'
+                >
+                  <div>
+                    <p className='font-semibold'>
+                      Order #{booking.orderId.substring(0, 8)} -{' '}
+                      {booking.boat.name}
+                    </p>
+                    <p className='text-sm text-gray-500'>
+                      Tanggal:{' '}
+                      {new Date(booking.bookingDate).toLocaleDateString('id-ID', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      booking.paymentStatus === 'PAID'
+                        ? 'text-green-800 bg-green-100'
+                        : 'text-yellow-800 bg-yellow-100'
+                    }`}
+                  >
+                    {booking.paymentStatus}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className='text-center p-8 bg-gray-50 text-gray-500 rounded-lg'>
+              <p>Anda belum memiliki riwayat pemesanan.</p>
+            </div>
+          )}
         </div>
       </div>
     );

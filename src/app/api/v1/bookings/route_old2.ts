@@ -1,24 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import moment from 'moment-timezone';
 
-import crypto from 'crypto';
+import crypto,  from 'crypto';
 
-
+function getJakartaTimestamp() {
+  const now = new Date();
+  // Konversi ke timezone Jakarta (UTC+7)
+  const jakartaTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return jakartaTime.getTime(); // dalam milliseconds
+}
 
 // Fungsi untuk membuat signature
 function createSignature(merchantCode: any, timestamp: any, apiKey: any) {
-  const signatureString = `${merchantCode}${timestamp}${apiKey}`;
+  const signatureString = `${merchantCode}-${timestamp}-${apiKey}`;
   return crypto.createHash('sha256').update(signatureString).digest('hex');
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-
+export async function GET() {
   try {
     const bookings = await prisma.booking.findMany({
-      where: userId ? { userId } : {},
       include: {
         user: true, // Sertakan data user yang mendaftar
         boat: true, // Sertakan data kapal yang dipesan
@@ -69,9 +71,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Memulai transaksi database
-
-    // Ambil data kapal dan user menggunakan transaction client (tx)
+    // Ambil data kapal dan user
     const [boat, user] = await Promise.all([
       prisma.boat.findUnique({
         where: { id: boatId },
@@ -80,91 +80,97 @@ export async function POST(request: NextRequest) {
     ]);
 
     if (!boat) {
-      // Melempar error akan otomatis me-rollback transaksi
       throw new Error('Kapal tidak ditemukan.');
     }
 
     if (!user) {
-      // Melempar error akan otomatis me-rollback transaksi
       throw new Error('User tidak ditemukan.');
     }
 
     // Hitung total harga di server untuk keamanan
     const totalPrice = boat.priceNum;
 
-    // --- PROSES INTEGRASI DUITKU ---
-    const merchantCode = process.env.DUITKU_MERCHANT_CODE;
-    const apiKey = process.env.DUITKU_API_KEY;
-    const duitkuCallbackUrl = process.env.DUITKU_CALLBACK_URL;
-    const duitkuReturnUrl = process.env.DUITKU_RETURN_URL;
-    const duitkuApiUrl =
-      process.env.DUITKU_API_URL ||
-      'https://api-sandbox.duitku.com/api/merchant/createInvoice';
+    // --- PROSES INTEGRASI MIDTRANS ---
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const midtransApiUrl ='https://app.sandbox.midtrans.com/snap/v1/transactions';
 
-    if (!merchantCode || !apiKey || !duitkuCallbackUrl || !duitkuReturnUrl) {
-      console.error('Duitku environment variables are not set');
-      // Melempar error akan otomatis me-rollback transaksi
+    if (!serverKey) {
+      console.error('Midtrans server key is not set');
       throw new Error('Konfigurasi payment gateway tidak lengkap.');
     }
 
     const orderId = generateOrderId();
-    const timestamp = Math.round(Date.now());
 
-    // const timestamp = getJakartaTimestamp();
-      console.log('Jakarta timestamp:', timestamp);
-    const signature = createSignature(merchantCode, timestamp, apiKey);
-    console.log('signature ', signature)
-
-
-    const duitkuPayload = {
-      paymentAmount: totalPrice,
-      merchantOrderId: orderId,
-      productDetails: `Booking for ${boat.name}`,
-      customerVaName: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber || '081234567890', // Ganti dengan nomor telepon user jika ada
-      itemDetails: [
+    // Create Midtrans payload
+    const midtransPayload = {
+     
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: totalPrice,
+      },
+      customer_details: {
+        first_name: user.name,
+        email: user.email,
+        phone: user.phoneNumber || '081234567890',
+      },
+          credit_card:{
+        secure : true
+    },
+      item_details: [
         {
-          name: `Sewa Kapal ${boat.name}`,
+          id: boat.id,
           price: totalPrice,
           quantity: 1,
+          name: `Sewa Kapal ${boat.name}`,
+          category: 'Boat Rental',
         },
       ],
-      callbackUrl: duitkuCallbackUrl,
-      returnUrl: duitkuReturnUrl,
-      expiryPeriod: 60, // dalam menit
+      custom_expiry: {
+        expiry_duration: 60,
+        unit: 'minute',
+      },
     };
+
+    // Encode server key untuk Basic Auth
+    const authString = Buffer.from(serverKey + ':').toString('base64');
 
     const headers = {
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'x-duitku-signature': signature,
-      'x-duitku-timestamp': timestamp.toString(), // pastikan ini `Date.now()` (miliseconds)
-      'x-duitku-merchantcode': merchantCode,
+      'Authorization': `Basic ${authString}`,
     };
 
-    console.log('Duitku headers:', headers);
-    console.log('Duitku payload:',duitkuPayload);
+    console.log('Midtrans headers:', headers);
+    console.log('Midtrans payload:', midtransPayload);
 
-    const duitkuResponse = await fetch(duitkuApiUrl, {
+    const midtransResponse = await fetch(midtransApiUrl, {
       method: 'POST',
       headers,
-      body: JSON.stringify(duitkuPayload),
+      body: JSON.stringify(midtransPayload),
     });
 
-    const duitkuData = await duitkuResponse.json();
+    const midtransData = await midtransResponse.json();
 
-    console.log('Duitku response:', duitkuData);
+    console.log('Midtrans response:', midtransData);
 
-    if (duitkuData.statusCode!== '00') {
-      console.error('Duitku API Error:', duitkuData);
-      // Melempar error akan otomatis me-rollback transaksi
+    // Untuk Snap API, success response hanya mengandung token dan redirect_url
+    if (!midtransResponse.ok) {
+      console.error('Midtrans API Error (HTTP):', midtransResponse.status, midtransData);
       throw new Error(
-        duitkuData.resultMessage || 'Gagal membuat invoice pembayaran.'
+        midtransData.error_messages?.[0] || `HTTP Error: ${midtransResponse.status}`
       );
     }
 
-    // Buat booking di DB *setelah* invoice berhasil dibuat
-    await prisma.booking.create({
+    // Snap API success jika ada token dan redirect_url
+    if (!midtransData.token || !midtransData.redirect_url) {
+      console.error('Midtrans Snap Error:', midtransData);
+      throw new Error(
+        midtransData.error_messages?.[0] || 'Gagal membuat Snap token.'
+      );
+    }
+
+    // Buat booking di DB *setelah* transaksi berhasil dibuat
+   await prisma.booking.create({
       data: {
         orderId: orderId,
         boatId,
@@ -174,19 +180,20 @@ export async function POST(request: NextRequest) {
         totalPrice,
         status: 'PENDING',
         paymentStatus: 'UNPAID',
-        snapRedirectUrl: duitkuData.paymentUrl || '',
-        paymentReference: duitkuData.reference || null,
+        snapRedirectUrl: midtransData.redirect_url,
+        paymentReference: midtransData.transaction_id || null,
       },
     });
 
     // Kembalikan data yang akan digunakan di response
     const result = {
-      // ...newBooking,
-      paymentUrl: duitkuData.paymentUrl,
-      reference: duitkuData.reference,
+      paymentUrl: midtransData.redirect_url,
+      transactionId: midtransData.transaction_id,
+     
     };
 
-    // Jika transaksi berhasil, kirim response sukses
+    console.log(result);
+
     return NextResponse.json(
       {
         statusCode: 201,
@@ -204,8 +211,8 @@ export async function POST(request: NextRequest) {
       statusCode = 404;
     } else if (errorMessage.includes('Konfigurasi payment gateway')) {
       statusCode = 500;
-    } else if (errorMessage.includes('invoice pembayaran')) {
-      statusCode = 502; // Bad Gateway, karena ada masalah dengan upstream (Duitku)
+    } else if (errorMessage.includes('transaksi pembayaran')) {
+      statusCode = 502; // Bad Gateway, karena ada masalah dengan upstream (Midtrans)
     }
 
     return NextResponse.json(

@@ -13,7 +13,7 @@ import {
   CheckCircle,
   Loader2,
 } from 'lucide-react';
-import {  useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 import FeatureIcon from '@/components/featureicon';
 import { Boat } from '@/types';
@@ -44,11 +44,7 @@ import { useSession } from 'next-auth/react';
 export default function BoatDetail() {
   const params = useParams();
   const boatId = parseInt(params.id as string, 10);
-    const { data: session, status } = useSession();
-  
-  
-
-  
+  const { data: session, status } = useSession();
 
   console.log(boatId);
 
@@ -140,8 +136,10 @@ export default function BoatDetail() {
         throw new Error(errorData.message || 'Gagal membuat pemesanan.');
       }
 
-      // Redirect ke halaman sukses atau halaman transaksi
-      router.push('/booking-success');
+      const result = await response.json();
+      console.log(result);
+
+      router.push(result.data.paymentUrl);
     } catch (error: any) {
       setBookingError(
         error.message || 'Terjadi kesalahan saat membuat pemesanan.'
@@ -309,7 +307,10 @@ export default function BoatDetail() {
 
           {/* Booking Sidebar */}
           <div className='lg:col-span-1'>
-            <form onSubmit={handleBooking} className='bg-white rounded-lg shadow-lg p-6 sticky top-24'>
+            <form
+              onSubmit={handleBooking}
+              className='bg-white rounded-lg shadow-lg p-6 sticky top-24'
+            >
               <div className='mb-6'>
                 <div className='text-3xl font-bold text-orange-600 mb-2'>
                   {boat.price}
@@ -342,7 +343,9 @@ export default function BoatDetail() {
                   <select
                     className='w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500'
                     value={numberOfGuests}
-                    onChange={(e) => setNumberOfGuests(parseInt(e.target.value))}
+                    onChange={(e) =>
+                      setNumberOfGuests(parseInt(e.target.value))
+                    }
                   >
                     {Array.from({ length: boat.capacity }, (_, i) => (
                       <option key={i + 1} value={i + 1}>
@@ -370,7 +373,10 @@ export default function BoatDetail() {
               </div>
 
               {bookingError && (
-                <div className='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4' role='alert'>
+                <div
+                  className='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4'
+                  role='alert'
+                >
                   <span className='block sm:inline'>{bookingError}</span>
                 </div>
               )}
@@ -380,9 +386,7 @@ export default function BoatDetail() {
                 disabled={isBooking}
                 className='w-full bg-blue-700 text-white py-3 rounded-md font-semibold hover:bg-blue-800 transition-colors mb-4 disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center'
               >
-                {isBooking && (
-                  <Loader2 className='w-5 h-5 mr-2 animate-spin' />
-                )}
+                {isBooking && <Loader2 className='w-5 h-5 mr-2 animate-spin' />}
                 {isBooking ? 'Memproses...' : 'Pesan Sekarang'}
               </button>
 
