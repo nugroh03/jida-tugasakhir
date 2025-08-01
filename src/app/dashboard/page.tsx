@@ -1,19 +1,18 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import {
-  BarChart3,
-  Anchor,
+
   Calendar,
-  TrendingUp,
+  
   Ship,
-  Star,
-  Activity,
+
 } from 'lucide-react';
 
-import type { BoatStats } from '../../types';
 import { useSession } from 'next-auth/react';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { setListBoats, setLoading } from '@/lib/features/boatSlice';
 
 const StatCardSkeleton = () => (
   <div className='bg-white rounded-lg shadow-sm p-6 animate-pulse'>
@@ -29,26 +28,39 @@ const StatCardSkeleton = () => (
 );
 
 export default function Dashboard() {
-  const { data: session, status } = useSession();
+  const {  status } = useSession();
+    const dispatch = useAppDispatch();
 
-  // const { user, logout, isLoading: isAuthLoading } = useAuth();
-  const [stats, setStats] = useState<BoatStats | null>(null);
-  const [isStatsLoading, setIsStatsLoading] = useState(true);
 
-  // useEffect(() => {
-  //   if (!isAuthLoading && !user) {
-  //     router.push('/login');
-  //   }
-  // }, [user, isAuthLoading, router]);
+    const isStatsLoading = useAppSelector((state) => state.boat.loading);
+    const boats = useAppSelector((state) => state.boat.boats);
 
-  useEffect(() => {
-    if (session) {
-      fetch('/api/v1/boats/stats')
-        .then((res) => res.json())
-        .then((data) => setStats(data.data))
-        .finally(() => setIsStatsLoading(false));
-    }
-  }, [session]);
+
+useEffect(() => {
+    const fetchBoats = async () => {
+      try {
+        dispatch(setLoading(true));
+        const response = await fetch('/api/v1/boats');
+        if (!response.ok) {
+          throw new Error('Gagal mengambil data kapal');
+        }
+        const result = await response.json();
+        if (result.statusCode !== 200) {
+          throw new Error(result.message || 'Terjadi kesalahan pada server');
+        }
+        dispatch(setListBoats(result.data));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        console.log(err);
+        dispatch(setLoading(false));
+      } finally {
+        dispatch(setLoading(false));
+      }
+    };
+
+    if (boats.length > 0) return;
+    fetchBoats();
+  }, [boats.length, dispatch]);
 
   // const handleLogout = () => {
   //   logout();
@@ -71,32 +83,12 @@ export default function Dashboard() {
   const dashboardStats = [
     {
       title: 'Total Kapal',
-      value: stats?.total || 0,
+      value: boats.length || 0,
       icon: <Ship className='h-8 w-8 text-blue-600' />,
       color: 'bg-blue-100',
       change: '+2 bulan ini',
     },
-    {
-      title: 'Kapal Wisata',
-      value: stats?.wisata || 0,
-      icon: <Anchor className='h-8 w-8 text-green-600' />,
-      color: 'bg-green-100',
-      change: 'Aktif semua',
-    },
-    {
-      title: 'Kapal Pancing',
-      value: stats?.pancing || 0,
-      icon: <Activity className='h-8 w-8 text-orange-600' />,
-      color: 'bg-orange-100',
-      change: 'Siap operasi',
-    },
-    {
-      title: 'Rating Rata-rata',
-      value: stats ? stats.averageRating.toFixed(1) : '0.0',
-      icon: <Star className='h-8 w-8 text-yellow-600' />,
-      color: 'bg-yellow-100',
-      change: 'Sangat baik',
-    },
+    
   ];
 
   const quickActions = [
@@ -107,27 +99,15 @@ export default function Dashboard() {
       icon: <Ship className='h-6 w-6' />,
       color: 'bg-blue-600 hover:bg-blue-700',
     },
-    {
-      title: 'Lihat Statistik',
-      description: 'Analisis performa dan booking',
-      href: '/dashboard/analytics',
-      icon: <BarChart3 className='h-6 w-6' />,
-      color: 'bg-green-600 hover:bg-green-700',
-    },
+
     {
       title: 'Kelola Booking',
       description: 'Lihat dan kelola reservasi',
-      href: '/dashboard/bookings',
+      href: '/dashboard/transactions',
       icon: <Calendar className='h-6 w-6' />,
       color: 'bg-orange-600 hover:bg-orange-700',
     },
-    {
-      title: 'Laporan',
-      description: 'Generate laporan bulanan',
-      href: '/dashboard/reports',
-      icon: <TrendingUp className='h-6 w-6' />,
-      color: 'bg-purple-600 hover:bg-purple-700',
-    },
+   
   ];
 
   return (
@@ -225,39 +205,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className='bg-white rounded-lg shadow-sm'>
-          <div className='p-6 border-b border-gray-200'>
-            <h3 className='text-lg font-semibold text-gray-900'>
-              Aktivitas Terbaru
-            </h3>
-          </div>
-          <div className='p-6'>
-            <div className='space-y-4'>
-              <div className='flex items-center space-x-3'>
-                <div className='w-2 h-2 bg-green-500 rounded-full'></div>
-                <span className='text-sm text-gray-600'>
-                  Kapal Ocean Explorer berhasil ditambahkan
-                </span>
-                <span className='text-xs text-gray-400'>2 jam yang lalu</span>
-              </div>
-              <div className='flex items-center space-x-3'>
-                <div className='w-2 h-2 bg-blue-500 rounded-full'></div>
-                <span className='text-sm text-gray-600'>
-                  Data kapal Fishing Master diperbarui
-                </span>
-                <span className='text-xs text-gray-400'>5 jam yang lalu</span>
-              </div>
-              <div className='flex items-center space-x-3'>
-                <div className='w-2 h-2 bg-orange-500 rounded-full'></div>
-                <span className='text-sm text-gray-600'>
-                  Booking baru untuk Sunset Cruiser
-                </span>
-                <span className='text-xs text-gray-400'>1 hari yang lalu</span>
-              </div>
-            </div>
-          </div>
-        </div>
+       
       </div>
     </div>
   );

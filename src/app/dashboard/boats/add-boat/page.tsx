@@ -1,7 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Wifi,
@@ -16,9 +17,18 @@ import {
   ArrowLeft,
   Loader2,
   CheckCircle2,
+  Upload,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { setListBoats } from '@/lib/features/boatSlice';
+import ImageKit from 'imagekit';
+
+
+const imagekit = new ImageKit({
+  publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
+  privateKey: process.env.NEXT_PUBLIC_IMAGEKIT_PRIVATE_KEY!,
+  urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
+});
 
 // Mapping ikon
 const iconOptions = [
@@ -36,6 +46,7 @@ export default function AddBoatPage() {
 
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -65,6 +76,18 @@ export default function AddBoatPage() {
     },
   });
 
+  // UPLOAD IMAGE
+  // const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef2 = useRef<HTMLInputElement>(null);
+
+
+
+
+
+
+
   // Fungsi untuk mengekstrak angka dari format harga Indonesia
   const extractPriceNumber = (priceString: string): number => {
     const numbers = priceString.replace(/[^\d]/g, '');
@@ -73,6 +96,8 @@ export default function AddBoatPage() {
 
   // Handle input changes
   const handleInputChange = (field: string, value: any) => {
+
+
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -140,14 +165,7 @@ export default function AddBoatPage() {
     });
   };
 
-  // const removeArrayItem = (field: string, index: number) => {
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     [field]: prev[field as keyof typeof prev].filter(
-  //       (_: any, i: number) => i !== index
-  //     ),
-  //   }));
-  // };
+
 
   const removeArrayItem = (field: string, index: number) => {
   setFormData((prev) => {
@@ -226,6 +244,74 @@ export default function AddBoatPage() {
     }
   };
 
+  const handleImageUpload = async (file: File, type : number, index? : number) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const base64 = buffer.toString('base64');
+    imagekit.upload({
+      file : base64,    //required
+      fileName : file.name,   //required
+      // extensions: [
+      //     {
+      //         name: "google-auto-tagging",
+      //         maxTags: 5,
+      //         minConfidence: 95
+      //     }
+      // ],
+      // transformation: {
+      //     pre: 'l-text,i-Imagekit,fs-50,l-end',
+      //     post: [
+      //         {
+      //             type: 'transformation',
+      //             value: 'w-100'
+      //         }
+      //     ]
+      // },
+      useUniqueFileName: true,
+    }).then(response => {
+      console.log(response);
+
+
+      console.log(response.url);
+
+
+      console.log("type" , type)
+
+      if(type == 0){
+        console.log('image');
+        handleInputChange('image', response.url);
+      }else{
+        console.log('gallery');
+        handleArrayChange('gallery', index!, response.url)
+      }
+      setIsUploading(false);
+    }).catch(error => {
+      console.log(error);
+      setIsUploading(false);
+    });
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>, type : number, index? : number) => {
+    const file = e.target.files?.[0];
+    console.log("index masuk:", type);
+    if (file) {
+      // setImage(file);
+      // Buat URL pratinjau lokal
+      const previewUrl = URL.createObjectURL(file);
+      setPreview(previewUrl);
+      // Mulai unggah secara otomatis
+
+      console.log("type1" , type)
+      handleImageUpload(file, type, index);
+    }
+  };
+
   return (
     <div className='bg-gray-50 min-h-screen'>
       <div className='container mx-auto px-4 py-8'>
@@ -279,7 +365,7 @@ export default function AddBoatPage() {
                     >
                       Nama Kapal *
                     </label>
-                    <input
+  <input
                       type='text'
                       id='name'
                       value={formData.name}
@@ -452,16 +538,47 @@ export default function AddBoatPage() {
                     >
                       Gambar Utama
                     </label>
-                    <input
-                      type='text'
-                      id='image'
-                      value={formData.image}
-                      onChange={(e) =>
-                        handleInputChange('image', e.target.value)
-                      }
-                      className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                      placeholder='URL atau path gambar utama'
-                    />
+                    <div className='flex items-center gap-2'>
+                      <input
+                        type='text'
+                        id='image'
+                        value={formData.image}
+                        onChange={(e) =>
+                          handleInputChange('image', e.target.value)
+                        }
+                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                        placeholder='URL gambar atau upload dari lokal'
+                      />
+                      <input
+                        type='file'
+                        ref={fileInputRef}
+                        onChange={(e) => {
+                          handleFileChange(e, 0, undefined)}}
+                        className='hidden'
+                        accept='image/*'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                      >
+                        {isUploading ? (
+                          <Loader2 className='w-5 h-5 animate-spin' />
+                        ) : (
+                          <Upload className='w-5 h-5' />
+                        )}
+                      </button>
+                    </div>
+                    {preview && (
+                      <div className='mt-4'>
+                        <img
+                          src={preview}
+                          alt='Preview Gambar Utama'
+                          className='w-full h-auto max-w-xs rounded-lg shadow-md'
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -483,11 +600,30 @@ export default function AddBoatPage() {
                         className='flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                         placeholder='URL gambar'
                       />
+                       <input
+                        type='file'
+                        ref={fileInputRef2}
+                        onChange={(e) => handleFileChange(e, 1, index)}
+                        className='hidden'
+                        accept='image/*'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => fileInputRef2.current?.click()}
+                        disabled={isUploading}
+                        className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                      >
+                        {isUploading ? (
+                          <Loader2 className='w-5 h-5 animate-spin' />
+                        ) : (
+                          <Upload className='w-5 h-5' />
+                        )}
+                      </button>
                       {formData.gallery.length > 1 && (
                         <button
                           type='button'
                           onClick={() => removeArrayItem('gallery', index)}
-                          className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                          className="px-3 py-2 border bg-red-500 border-gray-300 rounded-md shadow-sm text-white  hover:bg-gray-50"
                         >
                           <Trash2 className='w-4 h-4' />
                         </button>

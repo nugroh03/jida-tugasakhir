@@ -6,7 +6,7 @@ import {
   Loader2,
   PlusCircle,
   Users,
-  Anchor,
+
   Edit,
 } from 'lucide-react';
 
@@ -34,8 +34,6 @@ export default function ManageBoatsPage() {
   const boats = useAppSelector((state) => state.boat.boats);
 
   const totalCapacity = boats.reduce((sum, boat) => sum + boat.capacity, 0);
-  const uniqueCategories = [...new Set(boats.map((boat) => boat.category))]
-    .length;
 
   useEffect(() => {
     const fetchBoats = async () => {
@@ -103,17 +101,7 @@ export default function ManageBoatsPage() {
               </p>
             </div>
           </div>
-          <div className='bg-white p-6 rounded-lg shadow-md flex items-center'>
-            <div className='bg-yellow-100 p-3 rounded-full mr-4'>
-              <Anchor className='h-6 w-6 text-yellow-600' />
-            </div>
-            <div>
-              <p className='text-sm text-gray-500'>Jumlah Kategori</p>
-              <p className='text-2xl font-bold text-gray-800'>
-                {uniqueCategories}
-              </p>
-            </div>
-          </div>
+          
         </div>
 
         {loading && (

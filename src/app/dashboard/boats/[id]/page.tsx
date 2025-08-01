@@ -1,8 +1,9 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef, ChangeEvent } from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
   Wifi,
   Wind,
@@ -16,20 +17,29 @@ import {
   Save,
   ArrowLeft,
   Loader2,
-} from 'lucide-react';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import { Boat } from '@/types';
-import { useAppDispatch, useAppSelector } from '@/lib/hooks';
-import { setListBoats, setLoading } from '@/lib/features/boatSlice';
+  Upload,
+} from "lucide-react";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import { Boat } from "@/types";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { setListBoats, setLoading } from "@/lib/features/boatSlice";
+
+import ImageKit from "imagekit";
+
+const imagekit = new ImageKit({
+  publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
+  privateKey: process.env.NEXT_PUBLIC_IMAGEKIT_PRIVATE_KEY!,
+  urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
+});
 
 // Mapping ikon
 const iconOptions = [
-  { value: 'wifi', label: 'WiFi', icon: Wifi },
-  { value: 'wind', label: 'AC', icon: Wind },
-  { value: 'utensils', label: 'Makanan', icon: Utensils },
-  { value: 'music', label: 'Musik', icon: Music },
-  { value: 'shield', label: 'Keamanan', icon: ShieldCheck },
-  { value: 'anchor', label: 'Jangkar', icon: Anchor },
+  { value: "wifi", label: "WiFi", icon: Wifi },
+  { value: "wind", label: "AC", icon: Wind },
+  { value: "utensils", label: "Makanan", icon: Utensils },
+  { value: "music", label: "Musik", icon: Music },
+  { value: "shield", label: "Keamanan", icon: ShieldCheck },
+  { value: "anchor", label: "Jangkar", icon: Anchor },
 ];
 
 export default function BoatEditPage() {
@@ -48,27 +58,36 @@ export default function BoatEditPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [isUploading, setIsUploading] = useState(false);
+
+  // UPLOAD IMAGE
+  // const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef2 = useRef<HTMLInputElement>(null);
+
   // Form state
   const [formData, setFormData] = useState({
-    name: '',
-    type: '',
+    name: "",
+    type: "",
     capacity: 0,
-    duration: '',
-    price: '',
+    duration: "",
+    price: "",
     priceNum: 0,
     rating: 0,
     reviews: 0,
-    description: '',
-    gallery: [''],
-    features: [{ name: '', icon: 'wifi' }],
-    includes: [''],
-    destinations: [''],
+    description: "",
+    image: "",
+    gallery: [""],
+    features: [{ name: "", icon: "wifi" }],
+    includes: [""],
+    destinations: [""],
     specifications: {
-      'Panjang': '',
-      'Lebar': '',
-      'Mesin': '',
-      'Kecepatan': '',
-      'Bahan Bakar': '',
+      Panjang: "",
+      Lebar: "",
+      Mesin: "",
+      Kecepatan: "",
+      "Bahan Bakar": "",
       // 'Tahun Pembuatan': '',
     },
   });
@@ -90,6 +109,7 @@ export default function BoatEditPage() {
           rating: boatData.rating,
           reviews: boatData.reviews,
           description: boatData.description,
+          image: boatData.image,
           gallery: boatData.gallery,
           features: boatData.features,
           includes: boatData.includes,
@@ -117,6 +137,7 @@ export default function BoatEditPage() {
             priceNum: boatData.priceNum || 0,
             rating: boatData.rating,
             reviews: boatData.reviews,
+            image: boatData.image,
             description: boatData.description,
             gallery: boatData.gallery,
             features: boatData.features,
@@ -126,7 +147,7 @@ export default function BoatEditPage() {
           });
         } catch (error: any) {
           setError(
-            error.message || 'Terjadi kesalahan saat memuat data kapal.'
+            error.message || "Terjadi kesalahan saat memuat data kapal."
           );
         } finally {
           dispatch(setLoading(false));
@@ -141,7 +162,7 @@ export default function BoatEditPage() {
   // Handle input changes
   const handleInputChange = (field: string, value: any) => {
     // Jika field yang diubah adalah price, update juga priceNum
-    if (field === 'price') {
+    if (field === "price") {
       const priceNum = extractPriceNumber(value);
       setFormData((prev) => ({
         ...prev,
@@ -159,7 +180,7 @@ export default function BoatEditPage() {
   // Fungsi untuk mengekstrak angka dari format harga Indonesia
   const extractPriceNumber = (priceString: string): number => {
     // Hapus semua karakter non-digit
-    const numbers = priceString.replace(/[^\d]/g, '');
+    const numbers = priceString.replace(/[^\d]/g, "");
     return numbers ? parseInt(numbers, 10) : 0;
   };
 
@@ -234,7 +255,7 @@ export default function BoatEditPage() {
       setSuccessMessage(null);
 
       const response = await fetch(`/api/v1/boats/${boatId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (!response.ok) {
@@ -244,7 +265,7 @@ export default function BoatEditPage() {
         );
       }
 
-      setSuccessMessage('Data kapal berhasil dihapus!');
+      setSuccessMessage("Data kapal berhasil dihapus!");
 
       const deleteBoat = await response.json();
 
@@ -253,10 +274,10 @@ export default function BoatEditPage() {
       );
 
       setTimeout(() => {
-        router.push('/dashboard/boats');
+        router.push("/dashboard/boats");
       }, 2000);
     } catch (error: any) {
-      setError(error.message || 'Gagal menghapus data kapal.');
+      setError(error.message || "Gagal menghapus data kapal.");
     } finally {
       setIsModalOpen(false); // Selalu tutup modal setelah selesai
       setIsDeleting(false);
@@ -273,7 +294,7 @@ export default function BoatEditPage() {
       !formData.type.trim() ||
       !formData.description.trim()
     ) {
-      setError('Nama kapal, tipe, dan deskripsi wajib diisi.');
+      setError("Nama kapal, tipe, dan deskripsi wajib diisi.");
       return;
     }
 
@@ -293,9 +314,9 @@ export default function BoatEditPage() {
       };
 
       const response = await fetch(`/api/v1/boats/${boatId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(cleanedFormData),
       });
@@ -315,25 +336,104 @@ export default function BoatEditPage() {
         )
       );
 
-      setSuccessMessage('Data kapal berhasil diperbarui!');
+      setSuccessMessage("Data kapal berhasil diperbarui!");
 
       // Redirect kembali ke halaman detail setelah 2 detik
       setTimeout(() => {
-        router.push('/dashboard/boats');
+        router.push("/dashboard/boats");
       }, 2000);
     } catch (error: any) {
-      setError(error.message || 'Gagal mengupdate data kapal.');
+      setError(error.message || "Gagal mengupdate data kapal.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleImageUpload = async (
+    file: File,
+    type: number,
+    index?: number
+  ) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const base64 = buffer.toString("base64");
+    imagekit
+      .upload({
+        file: base64, //required
+        fileName: file.name, //required
+        // extensions: [
+        //     {
+        //         name: "google-auto-tagging",
+        //         maxTags: 5,
+        //         minConfidence: 95
+        //     }
+        // ],
+        // transformation: {
+        //     pre: 'l-text,i-Imagekit,fs-50,l-end',
+        //     post: [
+        //         {
+        //             type: 'transformation',
+        //             value: 'w-100'
+        //         }
+        //     ]
+        // },
+        useUniqueFileName: true,
+      })
+      .then((response) => {
+        console.log(response);
+
+        console.log(response.url);
+
+        console.log("type", type);
+
+        if (type == 0) {
+          console.log("image");
+          handleInputChange("image", response.url);
+        } else {
+          console.log("gallery");
+          handleArrayChange("gallery", index!, response.url);
+        }
+        setIsUploading(false);
+      })
+      .catch((error) => {
+        console.log(error);
+        setIsUploading(false);
+      });
+  };
+
+  const handleFileChange = (
+    e: ChangeEvent<HTMLInputElement>,
+    type: number,
+    index?: number
+  ) => {
+    const file = e.target.files?.[0];
+    console.log("index masuk:", type);
+    if (file) {
+      // setImage(file);
+      // Buat URL pratinjau lokal
+      if(type == 0){
+        const previewUrl = URL.createObjectURL(file);
+        setPreview(previewUrl);
+      }
+      // Mulai unggah secara otomatis
+
+      console.log("type1", type);
+      handleImageUpload(file, type, index);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center min-h-screen bg-gray-50'>
-        <div className='text-center'>
-          <Loader2 className='w-8 h-8 animate-spin mx-auto mb-4 text-blue-600' />
-          <p className='text-gray-600'>Memuat data kapal...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Memuat data kapal...</p>
         </div>
       </div>
     );
@@ -341,14 +441,14 @@ export default function BoatEditPage() {
 
   if (error && !isLoading) {
     return (
-      <div className='flex items-center justify-center min-h-screen bg-gray-50'>
-        <div className='text-center'>
-          <p className='text-red-600 mb-4'>Error: {error}</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error: {error}</p>
           <button
             onClick={() => router.back()}
-            className='inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
-            <ArrowLeft className='w-4 h-4 mr-2' />
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Kembali
           </button>
         </div>
@@ -357,36 +457,36 @@ export default function BoatEditPage() {
   }
 
   return (
-    <div className='bg-gray-50 min-h-screen'>
-      <div className='container mx-auto px-4 py-8'>
+    <div className="bg-gray-50 min-h-screen">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className='flex items-center justify-between mb-8'>
-          <div className='flex items-center space-x-4'>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
             <button
               onClick={() => router.back()}
-              className='inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
             >
-              <ArrowLeft className='w-4 h-4 mr-2' />
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Kembali
             </button>
-            <h1 className='text-3xl font-bold text-gray-900'>
+            <h1 className="text-3xl font-bold text-gray-900">
               Edit Detail Kapal
             </h1>
           </div>
           <button
-            type='button'
+            type="button"
             onClick={handleDeleteClick}
             disabled={isSubmitting || isDeleting}
-            className='inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300'
+            className="inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300"
           >
             {isDeleting ? (
               <>
-                <Loader2 className='w-4 h-4 mr-2 animate-spin' />
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Menghapus...
               </>
             ) : (
               <>
-                <Trash2 className='w-4 h-4 mr-2' />
+                <Trash2 className="w-4 h-4 mr-2" />
                 Hapus
               </>
             )}
@@ -395,9 +495,9 @@ export default function BoatEditPage() {
 
         {/* Success Message */}
         {successMessage && (
-          <div className='mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg'>
-            <div className='flex items-center'>
-              <CheckCircle2 className='w-5 h-5 mr-2' />
+          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            <div className="flex items-center">
+              <CheckCircle2 className="w-5 h-5 mr-2" />
               {successMessage}
             </div>
           </div>
@@ -405,7 +505,7 @@ export default function BoatEditPage() {
 
         {/* Error Message */}
         {error && (
-          <div className='mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg'>
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
           </div>
         )}
@@ -414,173 +514,173 @@ export default function BoatEditPage() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onConfirm={confirmDelete}
-          title='Konfirmasi Penghapusan'
-          message='Apakah Anda yakin ingin menghapus data kapal ini? Tindakan ini tidak dapat diurungkan.'
-          confirmText='Ya, Hapus'
-          cancelText='Batal'
+          title="Konfirmasi Penghapusan"
+          message="Apakah Anda yakin ingin menghapus data kapal ini? Tindakan ini tidak dapat diurungkan."
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
           isConfirming={isDeleting}
         />
 
-        <form onSubmit={handleSubmit} className='space-y-8'>
-          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Kolom Kiri - Form Utama */}
-            <div className='lg:col-span-2 space-y-6'>
+            <div className="lg:col-span-2 space-y-6">
               {/* Informasi Dasar */}
-              <div className='bg-white rounded-lg shadow p-6'>
-                <h2 className='text-xl font-semibold text-gray-900 mb-4'>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Informasi Dasar
                 </h2>
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   <div>
                     <label
-                      htmlFor='name'
-                      className='block text-sm font-medium text-gray-700 mb-1'
+                      htmlFor="name"
+                      className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       Nama Kapal
                     </label>
                     <input
-                      type='text'
-                      id='name'
+                      type="text"
+                      id="name"
                       value={formData.name}
                       onChange={(e) =>
-                        handleInputChange('name', e.target.value)
+                        handleInputChange("name", e.target.value)
                       }
-                      className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                      placeholder='Masukkan nama kapal'
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Masukkan nama kapal"
                       required
                     />
                   </div>
 
-                  <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label
-                        htmlFor='type'
-                        className='block text-sm font-medium text-gray-700 mb-1'
+                        htmlFor="type"
+                        className="block text-sm font-medium text-gray-700 mb-1"
                       >
                         Tipe Kapal
                       </label>
                       <input
-                        type='text'
-                        id='type'
+                        type="text"
+                        id="type"
                         value={formData.type}
                         onChange={(e) =>
-                          handleInputChange('type', e.target.value)
+                          handleInputChange("type", e.target.value)
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='e.g., Yacht, Speedboat'
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., Yacht, Speedboat"
                         required
                       />
                     </div>
 
                     <div>
                       <label
-                        htmlFor='capacity'
-                        className='block text-sm font-medium text-gray-700 mb-1'
+                        htmlFor="capacity"
+                        className="block text-sm font-medium text-gray-700 mb-1"
                       >
                         Kapasitas
                       </label>
                       <input
-                        type='number'
-                        id='capacity'
+                        type="number"
+                        id="capacity"
                         value={formData.capacity}
                         onChange={(e) =>
                           handleInputChange(
-                            'capacity',
+                            "capacity",
                             parseInt(e.target.value)
                           )
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='Jumlah orang'
-                        min='1'
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Jumlah orang"
+                        min="1"
                         required
                       />
                     </div>
 
                     <div>
                       <label
-                        htmlFor='duration'
-                        className='block text-sm font-medium text-gray-700 mb-1'
+                        htmlFor="duration"
+                        className="block text-sm font-medium text-gray-700 mb-1"
                       >
                         Durasi
                       </label>
                       <input
-                        type='text'
-                        id='duration'
+                        type="text"
+                        id="duration"
                         value={formData.duration}
                         onChange={(e) =>
-                          handleInputChange('duration', e.target.value)
+                          handleInputChange("duration", e.target.value)
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='e.g., 4 jam'
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., 4 jam"
                         required
                       />
                     </div>
                   </div>
 
-                  <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label
-                        htmlFor='price'
-                        className='block text-sm font-medium text-gray-700 mb-1'
+                        htmlFor="price"
+                        className="block text-sm font-medium text-gray-700 mb-1"
                       >
                         Harga
                       </label>
                       <input
-                        type='text'
-                        id='price'
+                        type="text"
+                        id="price"
                         value={formData.price}
                         onChange={(e) =>
-                          handleInputChange('price', e.target.value)
+                          handleInputChange("price", e.target.value)
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='e.g., Rp 2.500.000'
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., Rp 2.500.000"
                         required
                       />
                     </div>
 
                     <div>
                       <label
-                        htmlFor='rating'
-                        className='block text-sm font-medium text-gray-700 mb-1'
+                        htmlFor="rating"
+                        className="block text-sm font-medium text-gray-700 mb-1"
                       >
                         Rating
                       </label>
                       <input
-                        type='number'
-                        step='0.1'
-                        min='0'
-                        max='5'
-                        id='rating'
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="5"
+                        id="rating"
                         value={formData.rating}
                         onChange={(e) =>
                           handleInputChange(
-                            'rating',
+                            "rating",
                             parseFloat(e.target.value)
                           )
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='0.0 - 5.0'
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.0 - 5.0"
                         required
                       />
                     </div>
 
                     <div>
                       <label
-                        htmlFor='reviews'
-                        className='block text-sm font-medium text-gray-700 mb-1'
+                        htmlFor="reviews"
+                        className="block text-sm font-medium text-gray-700 mb-1"
                       >
                         Jumlah Ulasan
                       </label>
                       <input
-                        type='number'
-                        id='reviews'
+                        type="number"
+                        id="reviews"
                         value={formData.reviews}
                         onChange={(e) =>
-                          handleInputChange('reviews', parseInt(e.target.value))
+                          handleInputChange("reviews", parseInt(e.target.value))
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='Jumlah ulasan'
-                        min='0'
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Jumlah ulasan"
+                        min="0"
                         required
                       />
                     </div>
@@ -588,95 +688,173 @@ export default function BoatEditPage() {
 
                   <div>
                     <label
-                      htmlFor='description'
-                      className='block text-sm font-medium text-gray-700 mb-1'
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       Deskripsi
                     </label>
                     <textarea
-                      id='description'
+                      id="description"
                       value={formData.description}
                       onChange={(e) =>
-                        handleInputChange('description', e.target.value)
+                        handleInputChange("description", e.target.value)
                       }
                       rows={4}
-                      className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                      placeholder='Deskripsikan kapal Anda...'
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Deskripsikan kapal Anda..."
                       required
                     />
                   </div>
+                  <div>
+                    <label
+                      htmlFor="image"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Gambar Utama
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        id="image"
+                        value={formData.image}
+                        onChange={(e) =>
+                          handleInputChange("image", e.target.value)
+                        }
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="URL gambar atau upload dari lokal"
+                      />
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={(e) => {
+                          handleFileChange(e, 0, undefined);
+                        }}
+                        className="hidden"
+                        accept="image/*"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Upload className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  {preview && (
+                    <div className="mt-4">
+                      <img
+                        src={preview}
+                        alt="Preview Gambar Utama"
+                        className="w-full h-auto max-w-xs rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
+                  {formData.image && (
+                    <div className="mt-4">
+                      <img
+                        src={formData.image}
+                        alt="Preview Gambar Utama"
+                        className="w-full h-auto max-w-xs rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Galeri Gambar */}
-              <div className='bg-white rounded-lg shadow p-6'>
-                <h2 className='text-xl font-semibold text-gray-900 mb-4'>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Galeri Gambar
                 </h2>
-                <div className='space-y-3'>
+                <div className="space-y-3">
                   {formData.gallery.map((url, index) => (
-                    <div key={index} className='flex gap-2'>
+                    <div key={index} className="flex gap-2">
                       <input
-                        type='text'
+                        type="text"
                         value={url}
                         onChange={(e) =>
-                          handleArrayChange('gallery', index, e.target.value)
+                          handleArrayChange("gallery", index, e.target.value)
                         }
-                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='URL gambar'
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="URL gambar"
                       />
+                      <input
+                        type="file"
+                        ref={fileInputRef2}
+                        onChange={(e) => handleFileChange(e, 1, index)}
+                        className="hidden"
+                        accept="image/*"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef2.current?.click()}
+                        disabled={isUploading}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Upload className="w-5 h-5" />
+                        )}
+                      </button>
                       {formData.gallery.length > 1 && (
                         <button
-                          type='button'
-                          onClick={() => removeArrayItem('gallery', index)}
-                          className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                          type="button"
+                          onClick={() => removeArrayItem("gallery", index)}
+                          className="px-3 py-2 border bg-red-500 border-gray-300 rounded-md shadow-sm text-white  hover:bg-gray-50"
                         >
-                          <Trash2 className='w-4 h-4' />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
                   ))}
                   <button
-                    type='button'
-                    onClick={() => addArrayItem('gallery', '')}
-                    className='w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+                    type="button"
+                    onClick={() => addArrayItem("gallery", "")}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                   >
-                    <Plus className='w-4 h-4 mr-2 inline' />
+                    <Plus className="w-4 h-4 mr-2 inline" />
                     Tambah Gambar
                   </button>
                 </div>
               </div>
 
               {/* Fasilitas */}
-              <div className='bg-white rounded-lg shadow p-6'>
-                <h2 className='text-xl font-semibold text-gray-900 mb-4'>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Fasilitas Kapal
                 </h2>
-                <div className='space-y-3'>
+                <div className="space-y-3">
                   {formData.features.map((feature, index) => (
-                    <div key={index} className='flex gap-2'>
+                    <div key={index} className="flex gap-2">
                       <input
-                        type='text'
+                        type="text"
                         value={feature.name}
                         onChange={(e) =>
-                          handleArrayChange('features', index, {
+                          handleArrayChange("features", index, {
                             ...feature,
                             name: e.target.value,
                           })
                         }
-                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='Nama fasilitas'
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Nama fasilitas"
                         required
                       />
                       <select
                         value={feature.icon}
                         onChange={(e) =>
-                          handleArrayChange('features', index, {
+                          handleArrayChange("features", index, {
                             ...feature,
                             icon: e.target.value,
                           })
                         }
-                        className='w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                        className="w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
                         {iconOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -686,107 +864,107 @@ export default function BoatEditPage() {
                       </select>
                       {formData.features.length > 1 && (
                         <button
-                          type='button'
-                          onClick={() => removeArrayItem('features', index)}
-                          className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                          type="button"
+                          onClick={() => removeArrayItem("features", index)}
+                          className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
                         >
-                          <Trash2 className='w-4 h-4' />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
                   ))}
                   <button
-                    type='button'
+                    type="button"
                     onClick={() =>
-                      addArrayItem('features', { name: '', icon: 'wifi' })
+                      addArrayItem("features", { name: "", icon: "wifi" })
                     }
-                    className='w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                   >
-                    <Plus className='w-4 h-4 mr-2 inline' />
+                    <Plus className="w-4 h-4 mr-2 inline" />
                     Tambah Fasilitas
                   </button>
                 </div>
               </div>
 
               {/* Yang Termasuk */}
-              <div className='bg-white rounded-lg shadow p-6'>
-                <h2 className='text-xl font-semibold text-gray-900 mb-4'>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Harga Termasuk
                 </h2>
-                <div className='space-y-3'>
+                <div className="space-y-3">
                   {formData.includes.map((item, index) => (
-                    <div key={index} className='flex gap-2'>
+                    <div key={index} className="flex gap-2">
                       <input
-                        type='text'
+                        type="text"
                         value={item}
                         onChange={(e) =>
-                          handleArrayChange('includes', index, e.target.value)
+                          handleArrayChange("includes", index, e.target.value)
                         }
-                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='Item yang disertakan'
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Item yang disertakan"
                         required
                       />
                       {formData.includes.length > 1 && (
                         <button
-                          type='button'
-                          onClick={() => removeArrayItem('includes', index)}
-                          className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                          type="button"
+                          onClick={() => removeArrayItem("includes", index)}
+                          className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
                         >
-                          <Trash2 className='w-4 h-4' />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
                   ))}
                   <button
-                    type='button'
-                    onClick={() => addArrayItem('includes', '')}
-                    className='w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+                    type="button"
+                    onClick={() => addArrayItem("includes", "")}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                   >
-                    <Plus className='w-4 h-4 mr-2 inline' />
+                    <Plus className="w-4 h-4 mr-2 inline" />
                     Tambah Item
                   </button>
                 </div>
               </div>
 
               {/* Destinasi */}
-              <div className='bg-white rounded-lg shadow p-6'>
-                <h2 className='text-xl font-semibold text-gray-900 mb-4'>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Pilihan Destinasi
                 </h2>
-                <div className='space-y-3'>
+                <div className="space-y-3">
                   {formData.destinations.map((dest, index) => (
-                    <div key={index} className='flex gap-2'>
+                    <div key={index} className="flex gap-2">
                       <input
-                        type='text'
+                        type="text"
                         value={dest}
                         onChange={(e) =>
                           handleArrayChange(
-                            'destinations',
+                            "destinations",
                             index,
                             e.target.value
                           )
                         }
-                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        placeholder='Nama destinasi'
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Nama destinasi"
                         required
                       />
                       {formData.destinations.length > 1 && (
                         <button
-                          type='button'
-                          onClick={() => removeArrayItem('destinations', index)}
-                          className='px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                          type="button"
+                          onClick={() => removeArrayItem("destinations", index)}
+                          className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
                         >
-                          <Trash2 className='w-4 h-4' />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
                   ))}
                   <button
-                    type='button'
-                    onClick={() => addArrayItem('destinations', '')}
-                    className='w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'
+                    type="button"
+                    onClick={() => addArrayItem("destinations", "")}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                   >
-                    <Plus className='w-4 h-4 mr-2 inline' />
+                    <Plus className="w-4 h-4 mr-2 inline" />
                     Tambah Destinasi
                   </button>
                 </div>
@@ -794,30 +972,30 @@ export default function BoatEditPage() {
             </div>
 
             {/* Kolom Kanan - Spesifikasi & Actions */}
-            <div className='lg:col-span-1 space-y-6'>
+            <div className="lg:col-span-1 space-y-6">
               {/* Spesifikasi Kapal */}
-              <div className='bg-white rounded-lg shadow p-6'>
-                <h2 className='text-xl font-semibold text-gray-900 mb-4'>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Spesifikasi Kapal
                 </h2>
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   {Object.entries(formData.specifications).map(
                     ([key, value]) => (
                       <div key={key}>
                         <label
                           htmlFor={key}
-                          className='block text-sm font-medium text-gray-700 mb-1'
+                          className="block text-sm font-medium text-gray-700 mb-1"
                         >
                           {key}
                         </label>
                         <input
-                          type='text'
+                          type="text"
                           id={key}
                           value={value}
                           onChange={(e) =>
                             handleSpecificationChange(key, e.target.value)
                           }
-                          className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder={`Masukkan ${key.toLowerCase()}`}
                           required
                         />
@@ -828,37 +1006,37 @@ export default function BoatEditPage() {
               </div>
 
               {/* Actions */}
-              <div className='bg-white rounded-lg shadow p-6 sticky top-8'>
-                <div className='space-y-4'>
+              <div className="bg-white rounded-lg shadow p-6 sticky top-8">
+                <div className="space-y-4">
                   <button
-                    type='submit'
+                    type="submit"
                     disabled={isSubmitting || isDeleting}
-                    className='w-full flex items-center justify-center bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300'
+                    className="w-full flex items-center justify-center bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300"
                   >
                     {isSubmitting ? (
                       <>
-                        <Loader2 className='w-4 h-4 mr-2 animate-spin inline' />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
                         Menyimpan...
                       </>
                     ) : (
                       <>
-                        <Save className='w-4 h-4 mr-2 inline' />
+                        <Save className="w-4 h-4 mr-2 inline" />
                         Simpan Perubahan
                       </>
                     )}
                   </button>
 
                   <button
-                    type='button'
+                    type="button"
                     onClick={() => router.back()}
                     disabled={isSubmitting || isDeleting}
-                    className='w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Batal
                   </button>
                 </div>
 
-                <div className='mt-6 pt-4 border-t text-sm text-gray-500'>
+                <div className="mt-6 pt-4 border-t text-sm text-gray-500">
                   <p>• Pastikan semua data sudah benar sebelum menyimpan</p>
                   <p>• Perubahan akan langsung terlihat setelah disimpan</p>
                 </div>
