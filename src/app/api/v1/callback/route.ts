@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createHash } from 'crypto';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,10 +46,12 @@ export async function POST(request: NextRequest) {
     // Pastikan format signature untuk callback sesuai dengan dokumentasi Duitku.
     // Format ini adalah contoh umum dan mungkin perlu disesuaikan.
     // Contoh: sha256(merchantCode + amount + merchantOrderId + apiKey)
-    const signatureString = `${merchantCode}${amount}${merchantOrderId}${apiKey}`;
-    const localSignature = createHash('sha256')
-      .update(signatureString)
-      .digest('hex');
+    const timestamp = Math.round(Date.now());
+
+    // const timestamp = getJakartaTimestamp();
+    console.log('Jakarta timestamp:', timestamp);
+    const signatureString = `${merchantCode}${timestamp}${apiKey}`;
+    const localSignature = crypto.createHash('sha256').update(signatureString).digest('hex');
 
     if (duitkuSignature !== localSignature) {
       console.error('Invalid signature.', {
